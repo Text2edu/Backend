@@ -50,6 +50,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, os.getenv("SECRET_KEY"), algorithm=ALGORITHM)
 
+def to_dict(obj):
+    """Helper function to convert SQLAlchemy model to dictionary."""
+    return {column.name: getattr(obj, column.name) for column in obj.__table__.columns}
+
 @app.middleware("http")
 async def validate_token_middleware(request: Request, call_next):
     if request.url.path in ["/signup", "/login"]:
@@ -208,7 +212,8 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
 
             old_chat = db.query(Chat).filter(Chat.chat_id == body.chat_id).first()
 
-        return {'msg':new_msg,'chat':chat if body.chat_id=='' else old_chat}
+        
+        return {'msg':to_dict(new_msg),'chat':to_dict(chat) if body.chat_id=='' else to_dict(old_chat)}
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f'Error: {e}')
