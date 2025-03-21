@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from mistral_util import msgs, mistral_client, formatMsg
+
 class SignUpInfo(BaseModel):
     username: str
     pswd: str
@@ -177,7 +179,11 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
     user = request.state.user
 
     if(body.chat_id == ''):
-        chat = Chat(title="New Chat") # add mistral here
+        msgs.append(formatMsg(f'Message: "{body.text_content}"\nText: '))
+        resp = mistral_client.chat(model="mistral-small",messages=msgs)
+        print(resp.choices[0].message.content)
+        msgs.pop()
+        chat = Chat(title=resp.choices[0].message.content.strip('"')) # add mistral here
         
         try:
             db.add(chat)
