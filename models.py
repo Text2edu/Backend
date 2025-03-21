@@ -1,7 +1,8 @@
 from uuid import uuid4
-from sqlalchemy import Column, String, ForeignKey, Table, TIMESTAMP, func
+from sqlalchemy import Column, String, ForeignKey, Table, TIMESTAMP, func, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
+import datetime
 
 Base = declarative_base()
 
@@ -44,4 +45,18 @@ class Msg(Base):
     text_content = Column(String, nullable=True)
     media_content = Column(String, nullable=True)
     sender = Column(String, nullable=True)
+
+class VideoProject(Base):
+    __tablename__ = "video_projects"
+
+    video_project_id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    topic = Column(String, nullable=False)
+    status = Column(String, nullable=False, default="initializing")
+    scene_prompts = Column(Text)  
+    audio_prompts = Column(Text)  
+    remote_video_urls = Column(Text)  # 
+    remote_combined_url = Column(String)  
+    error_message = Column(String)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
