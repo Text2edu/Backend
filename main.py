@@ -261,6 +261,7 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
         return {'msg':to_dict(new_msg),'chat':to_dict(chat) if body.chat_id=='' else to_dict(old_chat)}
 
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=f'Error: {e}')
 
 
