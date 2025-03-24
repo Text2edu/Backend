@@ -17,7 +17,7 @@ import pusher
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 
-from mistral_util import msgs, mistral_client, formatMsg
+from mistral_util import generateTitle, getDirection
 
 class SignUpInfo(BaseModel):
     username: str
@@ -218,11 +218,8 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
     user = request.state.user
 
     if(body.chat_id == ''):
-        msgs.append(formatMsg(f'Message: "{body.text_content}"\nText: '))
-        resp = mistral_client.chat(model="mistral-small",messages=msgs)
-        print(resp.choices[0].message.content)
-        msgs.pop()
-        chat = Chat(title=resp.choices[0].message.content.strip('"')) 
+        resp = generateTitle(body.text_content)
+        chat = Chat(title=resp.strip('"')) 
         
         try:
             db.add(chat)
@@ -235,17 +232,24 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
             db.rollback()
             raise HTTPException(status_code=400, detail=str(er))
     
-    new_msg = Msg(sender=body.sender,text_content=body.text_content,media_content=body.media_content)
+    new_msg = Msg(sender=body.sender,text_content=body.text_content,media_content='')
+    msg_response = Msg(sender='ai',text_content=getDirection(body.text_content,user.user_id,chat.chat_id if body.chat_id=='' else body.chat_id), media_content = '')
 
     try:
         db.add(new_msg)
+        db.add(msg_response)
         db.commit()
         db.refresh(new_msg)
+        db.refresh(msg_response)
 
         if(body.chat_id==''):
             db.execute(chat_msg_table.insert().values(
                 chat_id = chat.chat_id,
                 msg_id = new_msg.msg_id
+            ))
+            db.execute(chat_msg_table.insert().values(
+                chat_id = chat.chat_id,
+                msg_id = msg_response.msg_id
             ))
             db.commit()
         else:
@@ -253,12 +257,16 @@ def sendMsg(body: SendingNewMsg, request: Request, db: Session = Depends(get_db)
                 chat_id = body.chat_id,
                 msg_id = new_msg.msg_id
             ))
+            db.execute(chat_msg_table.insert().values(
+                chat_id = body.chat_id,
+                msg_id = msg_response.msg_id
+            ))
             db.commit()
 
             old_chat = db.query(Chat).filter(Chat.chat_id == body.chat_id).first()
 
         
-        return {'msg':to_dict(new_msg),'chat':to_dict(chat) if body.chat_id=='' else to_dict(old_chat)}
+        return {'msg':to_dict(new_msg),'chat':to_dict(chat) if body.chat_id=='' else to_dict(old_chat),'response':to_dict(msg_response)}
 
     except Exception as e:
         db.rollback()
